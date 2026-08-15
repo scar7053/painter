@@ -122,10 +122,13 @@ while running:
     screen.fill((255,255,255))
 
     for segment in drawing:
-        pygame.draw.lines(screen, segment[0], False, segment[2], segment[1]*2)
-        if not low_performance:
-            for i in segment[2]:
-                pygame.draw.circle(screen, segment[0], i, segment[1])
+        if len(segment[2]) >= 2:
+            pygame.draw.lines(screen, segment[0], False, segment[2], segment[1]*2)
+            if not low_performance:
+                for i in segment[2]:
+                    pygame.draw.circle(screen, segment[0], i, segment[1])
+        else:
+            pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
     if screenshot_mode:
         counter = 1
         filename = f"export_{counter:04d}.png"
