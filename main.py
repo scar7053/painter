@@ -1,9 +1,13 @@
 import pygame
 import colorsys
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from pathlib import Path
+import json
 import sys, os
+from datetime import datetime
 pygame.init()
+
+__version__ = 1.2
 
 HELP_TEXT = """
 Made with ❤ by scar7053
@@ -31,8 +35,8 @@ F = Decrease width
 R = Increase width
 V = Reset width to default
 
-G = Decrease transparency
-T = Increase transparency
+N = Export canvas
+M = Import canvas
 """
 
 WIDTH,HEIGHT = 800,600
@@ -40,10 +44,10 @@ screen = pygame.display.set_mode((WIDTH,HEIGHT))
 pygame.display.set_caption("Painter")
 clock = pygame.time.Clock()
 
-def file_path():
+def file_path() -> str:
     try:
         path = sys._MEIPASS # pyinstaller detected!
-        path = Path(sys.executable).parent # set path to the .exe's folder
+        path = str(Path(sys.executable).parent) # set path to the .exe's folder
     except AttributeError:
         path = os.path.abspath(".")
 
@@ -51,13 +55,13 @@ def file_path():
 
 drawing = []
 
-color = [0,100,100,100] # in hsv, alpha
+color = [0,100,100] # in hsv, alpha
 draw_width = 10
 
 font = pygame.font.Font(None, 20)
 open_help_text = font.render("Press H for Help", True, (0,0,0))
 
-def color_rgba():
+def color_rgb():
     # normalize hsv to 0.0 - 1.0
     h_norm = color[0] / 360.0
     s_norm = color[1] / 100.0
@@ -67,7 +71,44 @@ def color_rgba():
     r, g, b = colorsys.hsv_to_rgb(h_norm, s_norm, v_norm)
     
     # scale it up to bytes, and alpha
-    return (int(r * 255), int(g * 255), int(b * 255), color[3])
+    return (int(r * 255), int(g * 255), int(b * 255))
+
+def export_canvas():
+    global __version__, drawing
+    file = filedialog.asksaveasfile(
+        filetypes=(("Painter Canvas", "*.pc"), ("All Files", "*.*")),
+        initialdir=Path(file_path())
+    )
+
+    if not file:
+        return
+
+    w = {
+        "version": __version__,
+        "created_at": datetime.now().isoformat(),
+        "contents":drawing
+    }
+
+    json.dump(w, file, separators=(',', ':'))
+
+def import_canvas():
+    global drawing
+    file = filedialog.askopenfile(
+        filetypes=(("Painter Canvas", "*.pc"), ("All Files", "*.*")),
+        initialdir=file_path()
+    )
+
+    if not messagebox.askokcancel("Confirmation", "Are you sure you want to load this canvas?"):
+        return
+
+    compiled = json.load(file)
+
+    match compiled["version"]:
+        case 1.2:
+            drawing = compiled["contents"]
+            # current version, no changes needed!
+            # might change in future updates.
+
 
 screenshot_mode = False
 low_performance = False
@@ -83,7 +124,7 @@ while running:
             if event.button == 1:
                 currently_drawing = True
                 current_segment = []
-                current_segment.append(color_rgba())
+                current_segment.append(color_rgb())
                 current_segment.append(draw_width)
                 current_segment.append([])
         if event.type == pygame.KEYDOWN:
@@ -94,7 +135,7 @@ while running:
                 else:
                     currently_drawing = True
                     current_segment = []
-                    current_segment.append(color_rgba())
+                    current_segment.append(color_rgb())
                     current_segment.append(draw_width)
                     current_segment.append([])
             if event.key == pygame.K_v:
@@ -105,6 +146,10 @@ while running:
                 screenshot_mode = True
             if event.key == pygame.K_l:
                 low_performance ^= 1
+            if event.key == pygame.K_n:
+                export_canvas()
+            if event.key == pygame.K_m:
+                import_canvas()
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_z:
@@ -127,6 +172,9 @@ while running:
             if not low_performance:
                 for i in segment[2]:
                     pygame.draw.circle(screen, segment[0], i, segment[1])
+            else:
+                pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
+                pygame.draw.circle(screen, segment[0], segment[2][-1], segment[1])
         else:
             pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
     if screenshot_mode:
@@ -154,15 +202,19 @@ while running:
         if (pos := pygame.mouse.get_pos()) != current_segment[2][-1]:
             current_segment[2].append(pos)
         if len(current_segment[2]) >= 2:
-            pygame.draw.lines(screen, color_rgba(), False, current_segment[2], draw_width*2)
+            pygame.draw.lines(screen, color_rgb(), False, current_segment[2], draw_width*2)
             if not low_performance:
                 for i in current_segment[2]:
                     pygame.draw.circle(screen, current_segment[0], i, current_segment[1])
+            else:
+                if len(current_segment[2]) >= 1:
+                    pygame.draw.circle(screen, current_segment[0], current_segment[2][0], current_segment[1])
+                # dont draw a circle at last position cuz it matches the cursor
 
     if not screenshot_mode:
-        pygame.draw.circle(screen, color_rgba(), pygame.mouse.get_pos(), draw_width)
+        pygame.draw.circle(screen, color_rgb(), pygame.mouse.get_pos(), draw_width)
 
-        pygame.draw.rect(screen, color_rgba(), pygame.rect.Rect(0, HEIGHT-20, WIDTH, 20))
+        pygame.draw.rect(screen, color_rgb(), pygame.rect.Rect(0, HEIGHT-20, WIDTH, 20))
         screen.blit(open_help_text, (WIDTH // 2 - (open_help_text.get_width()//2), HEIGHT-15))
 
     if (colord := pressed[pygame.K_q] - pressed[pygame.K_a]):
