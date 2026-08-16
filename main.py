@@ -98,6 +98,9 @@ def import_canvas():
         initialdir=file_path()
     )
 
+    if not file:
+        return
+
     if not messagebox.askokcancel("Confirmation", "Are you sure you want to load this canvas?"):
         return
 
@@ -176,7 +179,8 @@ while running:
                 pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
                 pygame.draw.circle(screen, segment[0], segment[2][-1], segment[1])
         else:
-            pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
+            if len(segment[2]) >= 1:
+                pygame.draw.circle(screen, segment[0], segment[2][0], segment[1])
     if screenshot_mode:
         counter = 1
         filename = f"export_{counter:04d}.png"
